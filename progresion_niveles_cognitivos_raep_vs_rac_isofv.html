@@ -1,0 +1,152 @@
+<h2 class="sr-only">Grafico de progresion de niveles cognitivos RAEP vs RAC del programa de Ingenieria de Software Virtual UNIMINUTO</h2>
+<style>
+.leg{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--color-text-secondary);margin:0 0 8px}
+.leg span{display:flex;align-items:center;gap:4px}
+.leg .sq{width:10px;height:10px;border-radius:2px}
+.sel-wrap{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-size:13px;color:var(--color-text-secondary)}
+.sum-card{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 16px;font-size:12px;color:var(--color-text-secondary);margin:12px 0 0}
+.sum-card strong{font-weight:500;color:var(--color-text-primary);font-size:14px}
+</style>
+<div class="sel-wrap">
+  <label for="raep-sel">Seleccionar RAEP:</label>
+  <select id="raep-sel" style="flex:1;max-width:420px"></select>
+</div>
+<div class="leg" id="legend"></div>
+<div style="position:relative;width:100%;height:320px">
+  <canvas id="chart1" role="img" aria-label="Progresion de niveles cognitivos RAEP vs RAC por curso">Grafico de lineas mostrando niveles cognitivos de los RAC comparados con el RAEP.</canvas>
+</div>
+<div style="margin-top:20px;font-size:13px;font-weight:500;color:var(--color-text-primary);text-align:center">Resumen por periodo academico</div>
+<div style="position:relative;width:100%;height:220px;margin-top:4px">
+  <canvas id="chart2" role="img" aria-label="Promedio de niveles cognitivos de RAC por periodo academico">Grafico de barras con promedio de niveles por periodo.</canvas>
+</div>
+<div class="sum-card" id="summary"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const nivMap={CONOCIMIENTO:1,COMPRENSION:2,APLICACION:3,ANALISIS:4,SINTESIS:5,EVALUACION:6,CREAR:6};
+const nivLbl=['','CONOCIMIENTO','COMPRENSION','APLICACION','ANALISIS','SINTESIS','EVALUACION'];
+function nv(s){return nivMap[s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[ÍÉ]/g,m=>m==='Í'?'I':'E').toUpperCase()]||1}
+const perOrder=['I','II','III','IV','V','VI','VII','VIII','IX','X'];
+const perColors=['#EF9F27','#E24B4A','#378ADD','#1D9E75','#7F77DD','#D85A30','#D4537E','#639922','#BA7517','#888780'];
+const raeps=[
+{id:1,nivel:'ANALISIS',rap:'Analizar teorias, modelos y tecnicas en identificacion de problemas de analisis, diseno y desarrollo de software',cursos:[
+{per:'I',nom:'Intro. Ing. Software',cr:3,racs:['COMPRENSION','APLICACION','APLICACION']},
+{per:'II',nom:'Des. Software OO',cr:3,racs:['CONOCIMIENTO','APLICACION','APLICACION']},
+{per:'III',nom:'Estr. Datos y Algoritmos',cr:3,racs:['COMPRENSION','ANALISIS','COMPRENSION']},
+{per:'IV',nom:'Ing. Software Avanzada',cr:3,racs:['ANALISIS','COMPRENSION','COMPRENSION']},
+{per:'III',nom:'Analisis y Diseno Software',cr:3,racs:['ANALISIS','SINTESIS','EVALUACION']}
+]},
+{id:2,nivel:'SINTESIS',rap:'Disenar sistemas de informacion haciendo uso de metodologias de analisis y diseno de desarrollo de software',cursos:[
+{per:'V',nom:'Diseno de Interfaces',cr:3,racs:['EVALUACION','COMPRENSION','COMPRENSION']},
+{per:'VI',nom:'Pruebas y Aseg. Calidad',cr:3,racs:['EVALUACION','EVALUACION','ANALISIS']},
+{per:'IV',nom:'Des. Software Web',cr:3,racs:['CONOCIMIENTO','EVALUACION','SINTESIS']},
+{per:'VIII',nom:'Computacion Bioinspirada',cr:3,racs:['SINTESIS','SINTESIS','SINTESIS']},
+{per:'VII',nom:'Seguridad en Des. Software',cr:3,racs:['COMPRENSION','EVALUACION','SINTESIS']},
+{per:'II',nom:'Algebra Lineal',cr:3,racs:['APLICACION','APLICACION','APLICACION']}
+]},
+{id:3,nivel:'CREAR',rap:'Construir soluciones de Software a traves del ciclo de vida del desarrollo de software',cursos:[
+{per:'VII',nom:'Des. Plataformas Moviles',cr:3,racs:['COMPRENSION','EVALUACION','SINTESIS']},
+{per:'IX',nom:'Gerencia Proyectos SW',cr:3,racs:['SINTESIS','ANALISIS','ANALISIS']},
+{per:'X',nom:'Adm. Config. Software',cr:3,racs:['ANALISIS','EVALUACION','EVALUACION']},
+{per:'I',nom:'Precalculo',cr:3,racs:['COMPRENSION','APLICACION','APLICACION']},
+{per:'III',nom:'Matematicas Discretas',cr:3,racs:['COMPRENSION','COMPRENSION','APLICACION']},
+{per:'III',nom:'Calculo Diferencial',cr:3,racs:['CONOCIMIENTO','APLICACION','APLICACION']},
+{per:'IV',nom:'Calculo Integral',cr:3,racs:['COMPRENSION','SINTESIS','APLICACION']},
+{per:'V',nom:'Fisica Mecanica',cr:3,racs:['CONOCIMIENTO','COMPRENSION','APLICACION']},
+{per:'VIII',nom:'Probabilidad y Estadistica',cr:3,racs:['APLICACION','ANALISIS','ANALISIS']}
+]},
+{id:4,nivel:'ANALISIS',rap:'Analizar necesidades empresariales en inteligencia de negocios',cursos:[
+{per:'III',nom:'Sist. Gestion Bases Datos',cr:3,racs:['SINTESIS','COMPRENSION','APLICACION']}
+]},
+{id:5,nivel:'SINTESIS',rap:'Disenar herramientas tecnologicas en ciencias de datos en el ambito de la IA',cursos:[
+{per:'IV',nom:'Data Warehouse y Mineria',cr:3,racs:['COMPRENSION','ANALISIS','APLICACION']},
+{per:'V',nom:'Inteligencia de Negocios',cr:3,racs:['SINTESIS','ANALISIS','APLICACION']}
+]},
+{id:6,nivel:'SINTESIS',rap:'Generar soluciones tecnologicas en infraestructura de HW, SW y Cloud',cursos:[
+{per:'IX',nom:'Machine Learning',cr:3,racs:['EVALUACION','SINTESIS','EVALUACION']},
+{per:'VIII',nom:'IA y Sistemas Inteligentes',cr:3,racs:['EVALUACION','EVALUACION','CONOCIMIENTO']}
+]},
+{id:7,nivel:'ANALISIS',rap:'Analizar necesidades de comunicacion en infraestructura de HW, SW y Cloud',cursos:[
+{per:'II',nom:'Infraestructura de TI',cr:3,racs:['EVALUACION','EVALUACION','EVALUACION']},
+{per:'I',nom:'Hab. Digitales Aprendizaje',cr:3,racs:['COMPRENSION','APLICACION','APLICACION']}
+]},
+{id:8,nivel:'SINTESIS',rap:'Disenar procesos de TI empleando modelos de acceso a la informacion',cursos:[
+{per:'IV',nom:'Sistemas Operativos',cr:3,racs:['COMPRENSION','ANALISIS','COMPRENSION']},
+{per:'VIII',nom:'Practica Resp. Social',cr:3,racs:['COMPRENSION','APLICACION','ANALISIS']},
+{per:'V',nom:'Constitucion Politica',cr:2,racs:['COMPRENSION','COMPRENSION']}
+]},
+{id:9,nivel:'EVALUACION',rap:'Desarrollar soluciones tecnologicas en infraestructura de TI empresarial',cursos:[
+{per:'VI',nom:'Infraestructura Nube',cr:3,racs:['EVALUACION','APLICACION','EVALUACION']},
+{per:'VII',nom:'Ethical Hacking',cr:3,racs:['EVALUACION','ANALISIS','EVALUACION']},
+{per:'IX',nom:'Plataformas Des. SW',cr:3,racs:['COMPRENSION','EVALUACION','EVALUACION']},
+{per:'VI',nom:'Etica Profesional',cr:2,racs:['APLICACION','COMPRENSION','EVALUACION']},
+{per:'VI',nom:'Emprendimiento',cr:3,racs:['APLICACION','CONOCIMIENTO','COMPRENSION']},
+{per:'IX',nom:'Fund. Investigacion',cr:3,racs:['SINTESIS','COMPRENSION']},
+{per:'X',nom:'Metod. Investigacion',cr:3,racs:['COMPRENSION','SINTESIS']},
+{per:'X',nom:'Practica Profesional',cr:6,racs:['ANALISIS','ANALISIS','EVALUACION']}
+]}
+];
+const sel=document.getElementById('raep-sel');
+raeps.forEach(r=>{const o=document.createElement('option');o.value=r.id;o.text='RAEP '+r.id+' - '+r.nivel+': '+r.rap.substring(0,60)+'...';sel.appendChild(o)});
+let ch1=null,ch2=null;
+function draw(rid){
+const r=raeps.find(x=>x.id===rid);
+const raepNiv=nv(r.nivel);
+const cursos=r.cursos;
+const labels=cursos.map(c=>c.nom+'\n('+c.cr+' cr.)');
+const perSet=[...new Set(cursos.map(c=>c.per))].sort((a,b)=>perOrder.indexOf(a)-perOrder.indexOf(b));
+const datasets=[];
+datasets.push({label:'RAEP ('+r.nivel+')',data:cursos.map(()=>raepNiv),borderColor:'#378ADD',backgroundColor:'#378ADD',borderWidth:3,pointRadius:0,borderDash:[8,4],fill:false});
+perSet.forEach((per,pi)=>{
+const col=perColors[perOrder.indexOf(per)%perColors.length];
+const data=cursos.map((c,ci)=>{
+if(c.per!==per)return null;
+const maxRac=Math.max(...c.racs.map(nv));
+return maxRac;
+});
+datasets.push({label:'RACs (Periodo '+per+')',data,borderColor:col,backgroundColor:col,borderWidth:2,pointRadius:6,pointStyle:'circle',spanGaps:false,fill:false});
+});
+if(ch1)ch1.destroy();
+ch1=new Chart(document.getElementById('chart1'),{type:'line',data:{labels,datasets},options:{
+responsive:true,maintainAspectRatio:false,
+plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return ctx.dataset.label+': '+nivLbl[Math.round(ctx.parsed.y)]},title:function(items){return items[0].label.replace('\n',' ')}}}},
+scales:{y:{min:0.5,max:6.5,ticks:{callback:v=>nivLbl[v]||'',stepSize:1,font:{size:11}},grid:{color:'rgba(128,128,128,0.15)'},title:{display:true,text:'Nivel cognitivo',font:{size:12}}},
+x:{ticks:{font:{size:10},maxRotation:45,autoSkip:false},grid:{display:false}}}
+}});
+const legEl=document.getElementById('legend');
+legEl.innerHTML='';
+datasets.forEach(ds=>{
+if(!ds.data.some(v=>v!==null))return;
+const sp=document.createElement('span');
+sp.innerHTML='<span class="sq" style="background:'+ds.borderColor+(ds.borderDash?';border:1.5px dashed '+ds.borderColor+';background:transparent':'')+'"></span>'+ds.label;
+legEl.appendChild(sp);
+});
+const perAgg={};
+cursos.forEach(c=>{
+if(!perAgg[c.per])perAgg[c.per]={sum:0,cnt:0,cr:0};
+c.racs.forEach(rc=>{perAgg[c.per].sum+=nv(rc);perAgg[c.per].cnt++});
+perAgg[c.per].cr+=c.cr;
+});
+const perKeys=Object.keys(perAgg).sort((a,b)=>perOrder.indexOf(a)-perOrder.indexOf(b));
+const barLabels=perKeys.map(p=>'Periodo '+p);
+const barData=perKeys.map(p=>Math.round((perAgg[p].sum/perAgg[p].cnt)*10)/10);
+const barColors=perKeys.map(p=>perColors[perOrder.indexOf(p)%perColors.length]);
+if(ch2)ch2.destroy();
+ch2=new Chart(document.getElementById('chart2'),{type:'bar',data:{labels:barLabels,datasets:[{data:barData,backgroundColor:barColors.map(c=>c+'CC'),borderColor:barColors,borderWidth:1}]},options:{
+responsive:true,maintainAspectRatio:false,
+plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'Prom: '+ctx.parsed.y.toFixed(1)+' | '+perAgg[perKeys[ctx.dataIndex]].cr+' creditos'}}},
+scales:{y:{min:0,max:6.5,ticks:{callback:v=>nivLbl[v]||'',stepSize:1,font:{size:11}},title:{display:true,text:'Nivel promedio RACs',font:{size:12}}},
+x:{ticks:{font:{size:11},autoSkip:false},grid:{display:false}}}
+}});
+let sumHtml='<strong>Resumen de datos por curso:</strong><br><br>';
+cursos.forEach(c=>{
+sumHtml+='RAEP: '+r.nivel+' | Periodo: '+c.per+'<br>';
+sumHtml+='Curso: '+c.nom+' | Creditos: '+c.cr+'<br>';
+sumHtml+='RACs: '+c.racs.join(', ')+'<br>';
+sumHtml+='<span style="color:var(--color-border-secondary)">----------------------------------------</span><br>';
+});
+sumHtml+='<br><span style="font-size:11px;font-style:italic">Fuente: Elaboracion propia a partir de la Matriz de Aprendizajes ISOFV, 2026</span>';
+document.getElementById('summary').innerHTML=sumHtml;
+}
+sel.addEventListener('change',()=>draw(parseInt(sel.value)));
+draw(1);
+</script>
